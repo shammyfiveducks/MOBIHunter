@@ -102,7 +102,7 @@ python main.py
 
 ## Beginner Friendly Instructions:
 
-🚀 Quick Start (Windows – Recommended)
+Quick Start (Windows – Recommended)
 
 Follow these steps if you're new to Python.
 
@@ -151,14 +151,14 @@ python main.py
 
 MOBIHunter will open.
 
-▶ Running Again Later
+## Running Again Later
 
 Next time, just run:
 
 ..venv\Scripts\activate
 python main.py
 
-✨ Features
+## Features
 
 Drag-and-drop files and folders
 
@@ -188,7 +188,7 @@ Output folder shortcut
 
 Live dependency status checker
 
-🖥 Requirements
+## Requirements
 
 Python 3.10+
 
@@ -200,7 +200,7 @@ tkinterdnd2
 
 Pillow
 
-🐧 Install (Linux / macOS)
+## Install (Linux / macOS)
 
 Open terminal inside project folder:
 
@@ -223,7 +223,7 @@ https://calibre-ebook.com/download
 
 Then restart terminal and MOBIHunter.
 
-📖 Usage
+## Usage
 
 Drag and drop MOBI files or folders
 or click Add MOBI
@@ -236,7 +236,8 @@ Watch progress
 
 Open converted EPUB files
 
-🧰 Troubleshooting
+## Troubleshooting
+
 ebook-convert not found
 
 Install Calibre and restart MOBIHunter.
@@ -263,3 +264,9 @@ Retry usually works automatically.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+If you find this useful
+
+Please consider starring the repo.
+
+It helps others discover it.
