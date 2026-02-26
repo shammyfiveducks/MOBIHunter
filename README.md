@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/screenshots/logo.png" width="140">
+  <img src="assets/screenshots/logo.png" width="216">
 </p>
 
 <h1 align="center">MOBIHunter</h1>
@@ -20,14 +20,6 @@
 <p align="center">
   Simple. Fast. No nonsense.
 </p>
-
-
-
-# MOBI Hunter
-
-<img width="216" height="209" alt="logo" src="https://github.com/user-attachments/assets/65b0777b-11dc-4d48-84ed-63aaf54ae799" />
-
-MOBI Hunter is a desktop GUI tool for converting `.mobi` ebooks to `.epub` using Calibre's `ebook-convert`.
 
 ## Features
 
