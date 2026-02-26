@@ -80,6 +80,42 @@ python main.py
 python main.py
 ```
 
+## Linux Portable Build (GitHub Releases)
+
+### End user: download and run
+
+```bash
+wget https://github.com/shammyfiveducks/MOBIHunter/releases/latest/download/MOBIHunter-linux-portable.tar.gz
+tar -xzf MOBIHunter-linux-portable.tar.gz
+cd MOBIHunter
+chmod +x MOBIHunter
+./MOBIHunter
+```
+
+Calibre (`ebook-convert`) still needs to be installed on the Linux machine.
+
+### Maintainer: build and upload tarball
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install pyinstaller
+
+python -m PyInstaller \
+  --noconfirm \
+  --windowed \
+  --name MOBIHunter \
+  --add-data "assets:assets" \
+  --collect-all tkinterdnd2 \
+  main.py
+
+tar -czf MOBIHunter-linux-portable.tar.gz -C dist MOBIHunter
+```
+
+Upload `MOBIHunter-linux-portable.tar.gz` at:
+https://github.com/shammyfiveducks/MOBIHunter/releases/new
+
 ## Usage
 
 1. Add MOBI files/folders via drag-drop or `Add MOBI...`.

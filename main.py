@@ -17,6 +17,12 @@ except ImportError:
     raise SystemExit("You need to install tkinterdnd2: pip install tkinterdnd2")
 
 
+def resource_path(relative: str) -> str:
+    """Return absolute path to bundled resource for dev and PyInstaller builds."""
+    base = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    return os.path.join(base, relative)
+
+
 class HoverTooltip:
     def __init__(self, widget, text, delay_ms=350):
         self.widget = widget
@@ -108,8 +114,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.title(self.APP_NAME)
         self.geometry("1220x1120")
 
-        self.app_dir = os.path.dirname(os.path.abspath(__file__))
-        self.icon_path = os.path.join(self.app_dir, self.ICON_RELATIVE_PATH)
+        self.icon_path = resource_path(self.ICON_RELATIVE_PATH)
         self.files_to_convert = []
         self.file_keys = set()
         self.is_converting = False
