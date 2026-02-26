@@ -1,5 +1,7 @@
 # MOBI Hunter
 
+<img width="707" height="769" alt="about" src="https://github.com/user-attachments/assets/4a439059-8ed4-4201-b236-0b35e8c99a0c" />
+
 MOBI Hunter is a desktop GUI tool for converting `.mobi` ebooks to `.epub` using Calibre's `ebook-convert`.
 
 ## Features
@@ -16,6 +18,7 @@ MOBI Hunter is a desktop GUI tool for converting `.mobi` ebooks to `.epub` using
 - About dialog with dependency status checks
 
 ## Requirements
+
 
 - Python 3.10+
 - Calibre installed (`ebook-convert` available on `PATH`)
