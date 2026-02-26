@@ -105,7 +105,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
         self.title(self.APP_NAME)
-        self.geometry("1220x560")
+        self.geometry("1220x1120")
 
         self.app_dir = os.path.dirname(os.path.abspath(__file__))
         self.icon_path = os.path.join(self.app_dir, self.ICON_RELATIVE_PATH)
@@ -127,6 +127,8 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.failure_policy = StringVar(self, value=self.FAIL_POLICY_KEEP)
         self.timeout_seconds_var = StringVar(self, value=str(self.DEFAULT_TIMEOUT_SECONDS))
         self.delete_source_var = StringVar(self, value="0")
+        self.output_dir_var = StringVar(self, value="")
+        self.output_dir_display_var = StringVar(self, value="Input folder (default)")
         self.timeout_tooltips = []
 
         self.drop_frame = ttk.Frame(self, width=1200, height=140)
@@ -217,6 +219,18 @@ class MobiToEpubApp(TkinterDnD.Tk):
         )
         self.delete_source_check.pack(side="left", padx=(12, 0))
 
+        output_frame = ttk.Frame(self)
+        output_frame.pack(fill="x", padx=10, pady=(0, 5))
+        ttk.Label(output_frame, text="Output folder:").pack(side="left", padx=(0, 6))
+        self.output_dir_entry = ttk.Entry(output_frame, textvariable=self.output_dir_display_var, state="readonly")
+        self.output_dir_entry.pack(side="left", fill="x", expand=True)
+        self.output_browse_button = ttk.Button(output_frame, text="Choose...", command=self.choose_output_directory)
+        self.output_browse_button.pack(side="left", padx=(6, 0))
+        self.output_default_button = ttk.Button(
+            output_frame, text="Use Input Folder", command=self.clear_output_directory
+        )
+        self.output_default_button.pack(side="left", padx=(6, 0))
+
         progress_frame = ttk.Frame(self)
         progress_frame.pack(fill="x", padx=10, pady=(0, 5))
         self.progress_text = StringVar(self, value="Progress: Idle")
@@ -225,7 +239,9 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.progress_bar = ttk.Progressbar(progress_frame, mode="determinate", maximum=1, value=0)
         self.progress_bar.pack(side="left", fill="x", expand=True)
 
-        self.log = scrolledtext.ScrolledText(self, wrap="word", height=10, state="disabled")
+        self.log = scrolledtext.ScrolledText(
+            self, wrap="word", height=10, state="disabled", font="TkDefaultFont"
+        )
         self.log.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.timeout_tooltips = [
@@ -250,77 +266,36 @@ class MobiToEpubApp(TkinterDnD.Tk):
             self.queue_log(f"Added {added_count} file(s) for the next batch after the current run.")
 
     def add_mobi_from_dialog(self):
-        mode = self.prompt_add_mode()
-        if mode == "files":
-            self.add_files_via_dialog()
-        elif mode == "folder":
-            self.add_folder_via_dialog()
-
-    def prompt_add_mode(self):
-        choice = {"value": None}
-        dialog = Toplevel(self)
-        dialog.title("Add MOBI")
-        dialog.resizable(False, False)
-        dialog.transient(self)
-
-        content = ttk.Frame(dialog, padding=12)
-        content.pack(fill="both", expand=True)
-        ttk.Label(content, text="Choose how to add MOBI input:").pack(pady=(0, 10))
-
-        button_row = ttk.Frame(content)
-        button_row.pack(fill="x")
-        ttk.Button(button_row, text="Select Files", command=lambda: self.close_mode_dialog(dialog, choice, "files")).pack(
-            side="left", padx=(0, 8), expand=True, fill="x"
-        )
-        ttk.Button(button_row, text="Select Folder", command=lambda: self.close_mode_dialog(dialog, choice, "folder")).pack(
-            side="left", expand=True, fill="x"
-        )
-        ttk.Button(content, text="Cancel", command=lambda: self.close_mode_dialog(dialog, choice, None)).pack(
-            pady=(10, 0)
-        )
-
-        dialog.bind("<Escape>", lambda _event: self.close_mode_dialog(dialog, choice, None))
-        self.center_child_window(dialog, 460, 170)
-        dialog.grab_set()
-        dialog.focus_force()
-        self.wait_window(dialog)
-        return choice["value"]
-
-    def close_mode_dialog(self, dialog, choice_holder, value):
-        choice_holder["value"] = value
-        dialog.destroy()
-
-    def add_files_via_dialog(self):
         converting_now = self.is_converting
-        selected_files = self.show_custom_path_picker(mode="files")
-        if not selected_files:
+        selection = self.show_custom_path_picker(mode="both", title="Add MOBI files or folder")
+        if not selection:
             return
+        selection_type, selection_value = selection
 
-        self.last_browse_dir = os.path.dirname(selected_files[0]) or self.last_browse_dir
-        added_count = 0
-        for path in selected_files:
-            added_count += self.queue_path(path)
+        if selection_type == "files":
+            selected_files = selection_value
+            self.last_browse_dir = os.path.dirname(selected_files[0]) or self.last_browse_dir
+            added_count = 0
+            for path in selected_files:
+                added_count += self.queue_path(path)
+        else:
+            selected_folder = selection_value
+            self.last_browse_dir = selected_folder
+            added_count = self.queue_path(selected_folder)
         self.log_manual_add_result(added_count, converting_now)
 
-    def add_folder_via_dialog(self):
-        converting_now = self.is_converting
-        selected_folder = self.show_custom_path_picker(mode="folder")
-        if not selected_folder:
-            return
-
-        self.last_browse_dir = selected_folder
-        added_count = self.queue_path(selected_folder)
-        self.log_manual_add_result(added_count, converting_now)
-
-    def show_custom_path_picker(self, mode):
-        start_dir = self.last_browse_dir if os.path.isdir(self.last_browse_dir) else os.path.expanduser("~")
+    def show_custom_path_picker(self, mode, start_dir=None, title=None):
+        if start_dir and os.path.isdir(start_dir):
+            initial_dir = start_dir
+        else:
+            initial_dir = self.last_browse_dir if os.path.isdir(self.last_browse_dir) else os.path.expanduser("~")
         result = {"value": None}
-        current_dir = {"value": start_dir}
+        current_dir = {"value": initial_dir}
         item_meta = {}
         counter = {"value": 0}
 
         dialog = Toplevel(self)
-        dialog.title("Select MOBI files" if mode == "files" else "Select folder")
+        dialog.title(title or ("Select MOBI files" if mode == "files" else "Select folder"))
         dialog.minsize(900, 600)
         dialog.resizable(True, True)
         dialog.transient(self)
@@ -330,7 +305,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         container.rowconfigure(2, weight=1)
         container.columnconfigure(0, weight=1)
 
-        path_var = StringVar(dialog, value=start_dir)
+        path_var = StringVar(dialog, value=initial_dir)
         info_var = StringVar(dialog, value="")
 
         nav_frame = ttk.Frame(container)
@@ -362,7 +337,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
             list_frame,
             columns=("kind", "size"),
             show="tree headings",
-            selectmode="extended" if mode == "files" else "browse",
+            selectmode="browse" if mode == "folder" else "extended",
         )
         tree.heading("#0", text="Name", anchor="w")
         tree.heading("kind", text="Type", anchor="w")
@@ -384,16 +359,28 @@ class MobiToEpubApp(TkinterDnD.Tk):
         hint_text = (
             "Double-click folders to open. Use Ctrl/Shift for multi-select."
             if mode == "files"
-            else "Double-click folders to open. Select a folder or use current location."
+            else (
+                "Double-click folders to open. Select files or select a folder."
+                if mode == "both"
+                else "Double-click folders to open. Select a folder or use current location."
+            )
         )
         ttk.Label(action_frame, text=hint_text).grid(row=0, column=0, sticky="w")
 
         button_row = ttk.Frame(action_frame)
         button_row.grid(row=0, column=1, sticky="e")
         ttk.Button(button_row, text="Cancel", command=dialog.destroy).pack(side="right")
-        ttk.Button(button_row, text="Select", command=lambda: finalize_selection()).pack(
-            side="right", padx=(0, 8)
-        )
+        if mode == "both":
+            ttk.Button(button_row, text="Select Folder", command=lambda: finalize_selection("folder")).pack(
+                side="right", padx=(0, 8)
+            )
+            ttk.Button(button_row, text="Select File(s)", command=lambda: finalize_selection("files")).pack(
+                side="right", padx=(0, 8)
+            )
+        else:
+            ttk.Button(button_row, text="Select", command=lambda: finalize_selection()).pack(
+                side="right", padx=(0, 8)
+            )
 
         def add_item(name, full_path, is_dir):
             counter["value"] += 1
@@ -432,7 +419,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
                 full_path = os.path.join(directory, name)
                 if os.path.isdir(full_path):
                     dirs.append((name, full_path))
-                elif mode == "files" and name.lower().endswith(".mobi"):
+                elif mode in ("files", "both") and name.lower().endswith(".mobi"):
                     files.append((name, full_path))
 
             dirs.sort(key=lambda item: item[0].lower())
@@ -443,7 +430,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
             for name, full_path in files:
                 add_item(name, full_path, is_dir=False)
 
-            if mode == "files":
+            if mode in ("files", "both"):
                 info_var.set(f"{len(dirs)} folder(s), {len(files)} .mobi file(s) in {directory}")
             else:
                 info_var.set(f"{len(dirs)} folder(s) in {directory}")
@@ -453,23 +440,34 @@ class MobiToEpubApp(TkinterDnD.Tk):
             if parent and parent != current_dir["value"]:
                 refresh_listing(parent)
 
-        def finalize_selection():
+        def finalize_selection(action=None):
             selections = [item_meta[iid] for iid in tree.selection() if iid in item_meta]
-            if mode == "files":
+            selected_mode = action or mode
+
+            if selected_mode == "files":
                 chosen = [path for path, is_dir in selections if not is_dir]
                 if not chosen:
                     messagebox.showwarning("No files selected", "Select one or more .mobi files.", parent=dialog)
                     return
-                result["value"] = chosen
+                if mode == "both":
+                    result["value"] = ("files", chosen)
+                else:
+                    result["value"] = chosen
                 dialog.destroy()
                 return
 
             for path, is_dir in selections:
                 if is_dir:
-                    result["value"] = path
+                    if mode == "both":
+                        result["value"] = ("folder", path)
+                    else:
+                        result["value"] = path
                     dialog.destroy()
                     return
-            result["value"] = current_dir["value"]
+            if mode == "both":
+                result["value"] = ("folder", current_dir["value"])
+            else:
+                result["value"] = current_dir["value"]
             dialog.destroy()
 
         def open_selected_or_finalize(_event=None):
@@ -480,20 +478,42 @@ class MobiToEpubApp(TkinterDnD.Tk):
             if is_dir:
                 refresh_listing(path)
                 return
-            if mode == "files":
-                finalize_selection()
+            if mode in ("files", "both"):
+                finalize_selection("files")
 
         path_entry.bind("<Return>", lambda _event: refresh_listing(path_var.get()))
         tree.bind("<Double-1>", open_selected_or_finalize)
         tree.bind("<Return>", open_selected_or_finalize)
 
-        refresh_listing(start_dir)
+        refresh_listing(initial_dir)
         self.center_child_window(dialog, 1020, 700)
         dialog.grab_set()
         dialog.focus_force()
         path_entry.focus_set()
         self.wait_window(dialog)
         return result["value"]
+
+    def choose_output_directory(self):
+        base_dir = self.output_dir_var.get().strip() or self.last_browse_dir
+        if not os.path.isdir(base_dir):
+            base_dir = os.path.expanduser("~")
+
+        selected_folder = self.show_custom_path_picker(mode="folder", start_dir=base_dir, title="Select output folder")
+        if not selected_folder:
+            return
+        self.output_dir_var.set(selected_folder)
+        self.last_browse_dir = selected_folder
+        self.update_output_dir_display()
+        self.queue_log(f"Output folder set to: {selected_folder}")
+
+    def clear_output_directory(self):
+        self.output_dir_var.set("")
+        self.update_output_dir_display()
+        self.queue_log("Output folder reset to input folder (default).")
+
+    def update_output_dir_display(self):
+        selected = self.output_dir_var.get().strip()
+        self.output_dir_display_var.set(selected if selected else "Input folder (default)")
 
     def log_manual_add_result(self, added_count, converting_now):
         if added_count == 0:
@@ -555,7 +575,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
             return False
         self.file_keys.add(canonical)
         self.files_to_convert.append(path)
-        self.queue_log(f"Queued file ({len(self.files_to_convert)}): {path}")
+        self.queue_log(f"{len(self.files_to_convert)}. {path}")
         return True
 
     def clear_list(self):
@@ -593,19 +613,25 @@ class MobiToEpubApp(TkinterDnD.Tk):
         except ValueError as exc:
             messagebox.showerror("Invalid timeout", str(exc))
             return
+        output_dir = self.output_dir_var.get().strip() or None
+        if output_dir and not os.path.isdir(output_dir):
+            messagebox.showerror("Invalid output folder", f"Selected output folder does not exist:\n{output_dir}")
+            return
 
         snapshot = list(self.files_to_convert)
         policy = self.existing_policy.get()
         self.cancel_requested = False
         self.set_conversion_controls(running=True)
         self.set_progress(0, len(snapshot))
+        if output_dir:
+            self.queue_log(f"Using output folder: {output_dir}")
         self.queue_log(f"Starting conversion of {len(snapshot)} file(s).")
         worker = threading.Thread(
-            target=self.convert_all, args=(snapshot, policy, timeout_seconds, converter_cmd), daemon=True
+            target=self.convert_all, args=(snapshot, policy, timeout_seconds, converter_cmd, output_dir), daemon=True
         )
         worker.start()
 
-    def convert_all(self, files, policy, timeout_seconds, converter_cmd):
+    def convert_all(self, files, policy, timeout_seconds, converter_cmd, output_dir):
         successes = []
         skipped = []
         failures = []
@@ -618,7 +644,9 @@ class MobiToEpubApp(TkinterDnD.Tk):
                 cancelled = True
                 break
 
-            status, detail, output_path = self.convert_file(mobi_path, policy, timeout_seconds, converter_cmd)
+            status, detail, output_path = self.convert_file(
+                mobi_path, policy, timeout_seconds, converter_cmd, output_dir
+            )
             if status == "success":
                 successes.append((mobi_path, output_path))
             elif status == "skipped":
@@ -636,8 +664,8 @@ class MobiToEpubApp(TkinterDnD.Tk):
 
         self.event_queue.put(("finished", successes, skipped, failures, total, processed_count, cancelled))
 
-    def convert_file(self, mobi_file, policy, timeout_seconds, converter_cmd):
-        output_path, should_skip = self.resolve_output_path(mobi_file, policy)
+    def convert_file(self, mobi_file, policy, timeout_seconds, converter_cmd, output_dir):
+        output_path, should_skip = self.resolve_output_path(mobi_file, policy, output_dir)
         if should_skip:
             self.event_queue.put(("log", f"Skipped existing EPUB: {output_path}"))
             return "skipped", "Output already exists.", output_path
@@ -730,8 +758,12 @@ class MobiToEpubApp(TkinterDnD.Tk):
         return_code = process.returncode if process is not None else 1
         return return_code, stdout or "", stderr or "", None
 
-    def resolve_output_path(self, mobi_file, policy):
-        base, _ = os.path.splitext(mobi_file)
+    def resolve_output_path(self, mobi_file, policy, output_dir):
+        if output_dir:
+            file_stem = os.path.splitext(os.path.basename(mobi_file))[0]
+            base = os.path.join(output_dir, file_stem)
+        else:
+            base, _ = os.path.splitext(mobi_file)
         target = base + ".epub"
         if not os.path.exists(target):
             return target, False
@@ -1040,6 +1072,8 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.timeout_spinbox.configure(state="disabled" if running else "normal")
         self.failure_policy_combo.configure(state="disabled" if running else "readonly")
         self.delete_source_check.configure(state="disabled" if running else "normal")
+        self.output_browse_button.configure(state="disabled" if running else "normal")
+        self.output_default_button.configure(state="disabled" if running else "normal")
         if running:
             self.drop_label.configure(text="Converting... please wait")
         else:
