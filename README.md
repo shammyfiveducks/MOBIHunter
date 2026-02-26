@@ -33,18 +33,16 @@
 - Optional delete-source-on-success toggle
 - Output folder shortcut
 - About dialog with dependency status checks
-- 
-<img width="623" height="566" alt="main" src="https://github.com/user-attachments/assets/4436b76a-8d89-4f4a-a087-c46747ab8be4" />
+
 
 ## Requirements
-
 
 - Python 3.10+
 - Calibre installed (`ebook-convert` available on `PATH`)
 - Python package: `tkinterdnd2`
 - Python package: `Pillow` (used for high-quality icon resizing)
 
-## Install (Linux/macOS)
+## Install (Linux/macOS) (Beginner instructions at bottom)
 
 ```bash
 python3 -m venv .venv
