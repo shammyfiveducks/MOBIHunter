@@ -16,6 +16,8 @@ MOBI Hunter is a desktop GUI tool for converting `.mobi` ebooks to `.epub` using
 - Optional delete-source-on-success toggle
 - Output folder shortcut
 - About dialog with dependency status checks
+- 
+<img width="623" height="566" alt="main" src="https://github.com/user-attachments/assets/4436b76a-8d89-4f4a-a087-c46747ab8be4" />
 
 ## Requirements
 
