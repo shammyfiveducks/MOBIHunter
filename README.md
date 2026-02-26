@@ -1,3 +1,28 @@
+<p align="center">
+  <img src="assets/screenshots/logo.png" width="140">
+</p>
+
+<h1 align="center">MOBIHunter</h1>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-blue">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-green">
+  <img src="https://img.shields.io/badge/License-MIT-purple">
+</p>
+<p align="center">
+  Fast, drag-and-drop MOBI → EPUB conversion powered by Calibre
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/main.png" width="700">
+</p>
+
+<p align="center">
+  Simple. Fast. No nonsense.
+</p>
+
+
+
 # MOBI Hunter
 
 <img width="216" height="209" alt="logo" src="https://github.com/user-attachments/assets/65b0777b-11dc-4d48-84ed-63aaf54ae799" />
