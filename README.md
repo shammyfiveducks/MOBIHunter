@@ -102,6 +102,166 @@ python main.py
 - About button is red:
   One or more required dependencies are missing; open About for install hints.
 
+## Beginner Friendly Instructions:
+
+🚀 Quick Start (Windows – Recommended)
+
+Follow these steps if you're new to Python.
+
+1. Install Python
+
+Download and install:
+
+https://www.python.org/downloads/
+
+During install, tick:
+
+Add Python to PATH
+
+Click Install Now
+
+2. Install Calibre
+
+Download and install:
+
+https://calibre-ebook.com/download
+
+3. Download MOBIHunter
+
+Click the green Code button on this page → Download ZIP
+
+Extract it somewhere convenient, for example:
+
+Desktop\MOBIHunter
+
+4. Open the folder in Terminal
+
+Inside the MOBIHunter folder:
+
+Right-click empty space → click:
+
+Open in Terminal
+
+5. Run MOBIHunter
+
+Copy and paste:
+
+py -m venv .venv
+..venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+
+MOBIHunter will open.
+
+▶ Running Again Later
+
+Next time, just run:
+
+..venv\Scripts\activate
+python main.py
+
+✨ Features
+
+Drag-and-drop files and folders
+
+Large in-app file/folder picker with memory
+
+Batch conversion
+
+Duplicate detection
+
+Progress tracking
+
+Existing output options:
+
+Skip
+
+Overwrite
+
+Rename
+
+Automatic retry for common Calibre errors
+
+Cancel active conversion
+
+Optional delete-source-after-success
+
+Output folder shortcut
+
+Live dependency status checker
+
+🖥 Requirements
+
+Python 3.10+
+
+Calibre installed (ebook-convert available on PATH)
+
+Python packages:
+
+tkinterdnd2
+
+Pillow
+
+🐧 Install (Linux / macOS)
+
+Open terminal inside project folder:
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+
+⚙ Calibre / ebook-convert
+
+MOBIHunter uses Calibre's conversion engine.
+
+If conversion fails with:
+
+ebook-convert not found
+
+Install Calibre:
+
+https://calibre-ebook.com/download
+
+Then restart terminal and MOBIHunter.
+
+📖 Usage
+
+Drag and drop MOBI files or folders
+or click Add MOBI
+
+Choose output behaviour if EPUB exists
+
+Click Convert All
+
+Watch progress
+
+Open converted EPUB files
+
+🧰 Troubleshooting
+ebook-convert not found
+
+Install Calibre and restart MOBIHunter.
+
+Drag and drop not working
+
+Run:
+
+pip install tkinterdnd2
+
+About button shows red
+
+Open About
+
+It will tell you exactly what is missing.
+
+Conversion failed
+
+Check log output inside MOBIHunter.
+
+Retry usually works automatically.
+
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
