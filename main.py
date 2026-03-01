@@ -267,6 +267,19 @@ class MobiToEpubApp(TkinterDnD.Tk):
         # Keep cancel available for future use, but hidden per current UX request.
         self.cancel_button = ttk.Button(actions_frame, text="Cancel", command=self.cancel_conversion, state="disabled")
 
+        status_frame = ttk.Frame(self)
+        status_frame.pack(fill="x", padx=10, pady=(0, 10))
+        self.status_var = StringVar(self, value="Ready")
+        self.status_label = tk.Label(
+            status_frame,
+            textvariable=self.status_var,
+            anchor="w",
+            relief="sunken",
+            bd=1,
+            padx=8,
+        )
+        self.status_label.pack(fill="x")
+
         self.timeout_tooltips = [
             HoverTooltip(self.timeout_label, self.TIMEOUT_TOOLTIP_TEXT),
             HoverTooltip(self.timeout_spinbox, self.TIMEOUT_TOOLTIP_TEXT),
@@ -938,6 +951,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         if output_dir:
             self.queue_log(f"Using output folder: {output_dir}")
         self.queue_log(f"Starting conversion of {len(snapshot)} file(s).")
+        self.set_status_message(f"Starting conversion of {len(snapshot)} file(s)...")
         worker = threading.Thread(
             target=self.convert_all, args=(snapshot, policy, timeout_seconds, converter_cmd, output_dir), daemon=True
         )
@@ -955,6 +969,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
             if self.cancel_requested:
                 cancelled = True
                 break
+            self.event_queue.put(("status", f"Converting {index}/{total}: {os.path.basename(mobi_path)}"))
 
             status, detail, output_path = self.convert_file(
                 mobi_path, policy, timeout_seconds, converter_cmd, output_dir
@@ -1118,6 +1133,8 @@ class MobiToEpubApp(TkinterDnD.Tk):
             event_type = event[0]
             if event_type == "log":
                 self.log_message(event[1])
+            elif event_type == "status":
+                self.set_status_message(event[1])
             elif event_type == "progress":
                 _, current, total = event
                 self.set_progress(current, total)
@@ -1164,6 +1181,17 @@ class MobiToEpubApp(TkinterDnD.Tk):
         if cancelled:
             self.log_message("Conversion cancelled by user.")
         self.log_message(f"Queue now has {len(self.files_to_convert)} file(s).")
+
+        if cancelled:
+            self.set_status_message(
+                f"Conversion cancelled: {len(successes)} converted, {len(skipped)} skipped, {len(failures)} failed."
+            )
+        elif failures:
+            self.set_status_message(
+                f"Conversion complete with errors: {len(successes)} converted, {len(skipped)} skipped, {len(failures)} failed."
+            )
+        else:
+            self.set_status_message(f"Conversion complete: {len(successes)} converted, {len(skipped)} skipped.")
 
         if cancelled:
             messagebox.showinfo(
@@ -1227,6 +1255,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
                 self.queue_log(f"Failed to terminate current conversion: {exc}")
                 return
         self.queue_log("Cancellation requested. Stopping after current step.")
+        self.set_status_message("Cancellation requested...")
 
     def show_about(self):
         self.update_about_button_status()
@@ -1358,11 +1387,13 @@ class MobiToEpubApp(TkinterDnD.Tk):
     def log_startup_dependency_hints(self):
         missing = self.get_missing_dependency_names()
         if not missing:
+            self.set_status_message("Ready.")
             return
         self.queue_log(
             f"Dependency check: missing {', '.join(missing)}. "
             "Open About for install guidance."
         )
+        self.set_status_message(f"Missing dependencies: {', '.join(missing)}")
 
     def set_conversion_controls(self, running):
         self.is_converting = running
@@ -1400,6 +1431,12 @@ class MobiToEpubApp(TkinterDnD.Tk):
             self.progress_text.set("Progress: Idle")
         else:
             self.progress_text.set(f"Progress: {current}/{total}")
+
+    def set_status_message(self, text):
+        if threading.current_thread() is not threading.main_thread():
+            self.event_queue.put(("status", text))
+            return
+        self.status_var.set(text)
 
     def check_converter_available(self, show_dialog=False):
         self.converter_cmd = shutil.which("ebook-convert")

@@ -296,6 +296,14 @@ Check log output inside MOBIHunter.
 
 Retry usually works automatically.
 
+## Acknowledgements
+
+- MOBI to EPUB conversion is performed by **Calibre** via `ebook-convert`.
+  - Project: https://calibre-ebook.com/
+  - Source: https://github.com/kovidgoyal/calibre
+- Drag-and-drop support is provided by **tkinterdnd2**.
+- Image loading/scaling support uses **Pillow**.
+
 
 ## License
 
