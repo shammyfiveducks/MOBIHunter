@@ -222,10 +222,24 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.progress_bar = ttk.Progressbar(progress_frame, mode="determinate", maximum=1, value=0)
         self.progress_bar.pack(side="left", fill="x", expand=True)
 
+        self.log_container = ttk.Frame(self)
+        self.log_container.pack(fill="both", expand=True, padx=10, pady=10)
+
         self.log = scrolledtext.ScrolledText(
-            self, wrap="word", height=10, state="disabled", font="TkDefaultFont"
+            self.log_container, wrap="word", height=10, state="disabled", font="TkDefaultFont"
         )
-        self.log.pack(fill="both", expand=True, padx=10, pady=10)
+        self.log.pack(fill="both", expand=True)
+        self.log_watermark_image = self.load_log_watermark_image()
+        self.log_watermark_label = None
+        if self.log_watermark_image is not None:
+            self.log_watermark_label = tk.Label(
+                self.log_container,
+                image=self.log_watermark_image,
+                bd=0,
+                highlightthickness=0,
+                bg=self.log.cget("background"),
+            )
+            self.log_watermark_label.place(relx=0.5, rely=0.5, anchor="center")
 
         bottom_frame = ttk.Frame(self)
         bottom_frame.pack(fill="x", padx=10, pady=(0, 10))
@@ -284,6 +298,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
             HoverTooltip(self.timeout_label, self.TIMEOUT_TOOLTIP_TEXT),
             HoverTooltip(self.timeout_spinbox, self.TIMEOUT_TOOLTIP_TEXT),
         ]
+        self.update_log_watermark_visibility()
         self.update_path_display()
         self.load_icons()
         self.protocol("WM_DELETE_WINDOW", self.on_main_window_close)
@@ -357,6 +372,30 @@ class MobiToEpubApp(TkinterDnD.Tk):
             return image
         except Exception:
             return None
+
+    def load_log_watermark_image(self):
+        logo_path = self.get_splash_logo_path()
+        if not logo_path or not os.path.isfile(logo_path):
+            return None
+        try:
+            from PIL import Image, ImageTk
+
+            image = Image.open(logo_path).convert("RGBA")
+            image.thumbnail((420, 180), Image.Resampling.LANCZOS)
+            alpha = image.getchannel("A").point(lambda value: int(value * 0.12))
+            image.putalpha(alpha)
+            return ImageTk.PhotoImage(image)
+        except Exception:
+            return None
+
+    def update_log_watermark_visibility(self):
+        if self.log_watermark_label is None:
+            return
+        text = self.log.get("1.0", "end-1c").strip()
+        if text:
+            self.log_watermark_label.place_forget()
+        else:
+            self.log_watermark_label.place(relx=0.5, rely=0.5, anchor="center")
 
     def show_splash_window(self):
         logo_path = self.get_splash_logo_path()
@@ -1196,18 +1235,18 @@ class MobiToEpubApp(TkinterDnD.Tk):
         if cancelled:
             messagebox.showinfo(
                 "Conversion cancelled",
-                f"Stopped after {processed_count}/{total} file(s).\n"
-                f"{len(successes)} converted, {len(skipped)} skipped, {len(failures)} failed.",
+                f"Stopped at {processed_count}/{total}.\n"
+                f"OK:{len(successes)}  Skip:{len(skipped)}  Fail:{len(failures)}",
             )
         elif failures:
             messagebox.showwarning(
                 "Conversion complete",
-                f"{len(successes)} converted, {len(skipped)} skipped, {len(failures)} failed.\n"
-                "Use 'Copy Errors' for details.",
+                f"OK:{len(successes)}  Skip:{len(skipped)}  Fail:{len(failures)}\n"
+                "See File -> Copy Errors.",
             )
         else:
             messagebox.showinfo(
-                "Conversion complete", f"{len(successes)} converted, {len(skipped)} skipped."
+                "Conversion complete", f"OK:{len(successes)}  Skip:{len(skipped)}"
             )
 
     def copy_errors(self):
@@ -1530,6 +1569,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.log.insert("end", msg + "\n")
         self.log.see("end")
         self.log.configure(state="disabled")
+        self.update_log_watermark_visibility()
 
 
 if __name__ == "__main__":
