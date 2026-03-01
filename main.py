@@ -310,6 +310,8 @@ class MobiToEpubApp(TkinterDnD.Tk):
 
     def get_splash_logo_path(self):
         candidates = (
+            resource_path(os.path.join("assets", "splash.webp")),
+            resource_path(os.path.join("assets", "splash.png")),
             resource_path(os.path.join("assets", "logo.png")),
             resource_path(os.path.join("assets", "screenshots", "logo.png")),
             self.icon_path,
