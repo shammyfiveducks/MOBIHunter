@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import webbrowser
+import json
 import tkinter as tk
 from tkinter import PhotoImage, StringVar, Toplevel, messagebox, scrolledtext, ttk
 
@@ -108,6 +109,15 @@ class MobiToEpubApp(TkinterDnD.Tk):
         "Maximum time allowed per file conversion.\n"
         "If ebook-convert runs longer than this, it is stopped and marked as failed."
     )
+    DROP_ZONE_BG = "#f6f7f9"
+    DROP_ZONE_BG_HOVER = "#eef3ff"
+    DROP_ZONE_BORDER = "#b8bec9"
+    DROP_ZONE_BORDER_HOVER = "#4c7dff"
+    DROP_ZONE_TEXT = "#2b2f36"
+    DROP_ZONE_SUBTEXT = "#6b7280"
+    DROP_ZONE_ICON = "\u2B07"
+    ACTION_ICON_OPEN_FOLDER = "\U0001F4C2"
+    SPLASH_DURATION_MS = 3000
 
     def __init__(self):
         super().__init__()
@@ -133,57 +143,36 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.failure_policy = StringVar(self, value=self.FAIL_POLICY_KEEP)
         self.timeout_seconds_var = StringVar(self, value=str(self.DEFAULT_TIMEOUT_SECONDS))
         self.delete_source_var = StringVar(self, value="0")
+        self.input_dir_var = StringVar(self, value="")
+        self.input_dir_display_var = StringVar(self, value="Input: Select MOBI files/folder")
         self.output_dir_var = StringVar(self, value="")
-        self.output_dir_display_var = StringVar(self, value="Input folder (default)")
+        self.output_dir_display_var = StringVar(self, value="Output: Select folder")
+        self.separate_output_var = tk.BooleanVar(self, value=True)
         self.timeout_tooltips = []
+        self.drop_zone_mouse_over = False
+        self.drop_zone_drag_over = False
+        self.splash_window = None
+        self.splash_after_id = None
+        self.splash_logo_image = None
+        self.load_ui_settings()
 
-        self.drop_frame = ttk.Frame(self, width=1200, height=140)
+        self.drop_frame = ttk.Frame(self, width=1200, height=170)
         self.drop_frame.pack(padx=10, pady=10)
         self.drop_frame.pack_propagate(False)
 
-        self.drop_label = ttk.Label(
-            self.drop_frame, text="Drag .mobi files or folders here", relief="groove", anchor="center"
-        )
-        self.drop_label.pack(fill="both", expand=True)
-        self.drop_label.drop_target_register(DND_FILES)
-        self.drop_label.dnd_bind("<<Drop>>", self.on_drop)
+        self.drop_canvas = tk.Canvas(self.drop_frame, highlightthickness=0, bd=0, relief="flat", cursor="hand2")
+        self.drop_canvas.pack(fill="both", expand=True)
+        self.drop_canvas.bind("<Configure>", self.redraw_drop_zone, add="+")
+        self.drop_canvas.bind("<Enter>", self.on_drop_zone_mouse_enter, add="+")
+        self.drop_canvas.bind("<Leave>", self.on_drop_zone_mouse_leave, add="+")
+        self.drop_canvas.bind("<Button-1>", self.on_drop_zone_click, add="+")
+        self.drop_canvas.drop_target_register(DND_FILES)
+        self.drop_canvas.dnd_bind("<<Drop>>", self.on_drop)
+        self.drop_canvas.dnd_bind("<<DropEnter>>", self.on_drop_target_enter)
+        self.drop_canvas.dnd_bind("<<DropLeave>>", self.on_drop_target_leave)
+        self.redraw_drop_zone()
 
-        button_frame = ttk.Frame(self)
-        button_frame.pack(fill="x", pady=5)
-
-        self.add_button = ttk.Button(button_frame, text="Add MOBI...", command=self.add_mobi_from_dialog)
-        self.add_button.pack(side="left", padx=5)
-
-        self.clear_button = ttk.Button(button_frame, text="Clear List", command=self.clear_list)
-        self.clear_button.pack(side="left", padx=5)
-
-        self.convert_button = ttk.Button(button_frame, text="Convert All", command=self.start_conversion)
-        self.convert_button.pack(side="left", padx=5)
-
-        self.cancel_button = ttk.Button(
-            button_frame, text="Cancel", command=self.cancel_conversion, state="disabled"
-        )
-        self.cancel_button.pack(side="left", padx=5)
-
-        self.copy_errors_button = ttk.Button(
-            button_frame, text="Copy Errors", command=self.copy_errors, state="disabled"
-        )
-        self.copy_errors_button.pack(side="left", padx=5)
-
-        self.open_folder_button = ttk.Button(
-            button_frame,
-            text="Open Output Folder",
-            command=self.open_output_folder,
-            state="disabled",
-        )
-        self.open_folder_button.pack(side="left", padx=5)
-
-        self.about_button = tk.Button(button_frame, text="About", width=7, command=self.show_about)
-        self.about_button.pack(side="right", padx=5)
-        self.about_button_default_bg = self.about_button.cget("bg")
-        self.about_button_default_fg = self.about_button.cget("fg")
-        self.about_button_default_active_bg = self.about_button.cget("activebackground")
-        self.about_button_default_active_fg = self.about_button.cget("activeforeground")
+        self.build_menu_bar()
 
         options_frame = ttk.Frame(self)
         options_frame.pack(fill="x", padx=10, pady=(0, 5))
@@ -225,18 +214,6 @@ class MobiToEpubApp(TkinterDnD.Tk):
         )
         self.delete_source_check.pack(side="left", padx=(12, 0))
 
-        output_frame = ttk.Frame(self)
-        output_frame.pack(fill="x", padx=10, pady=(0, 5))
-        ttk.Label(output_frame, text="Output folder:").pack(side="left", padx=(0, 6))
-        self.output_dir_entry = ttk.Entry(output_frame, textvariable=self.output_dir_display_var, state="readonly")
-        self.output_dir_entry.pack(side="left", fill="x", expand=True)
-        self.output_browse_button = ttk.Button(output_frame, text="Choose...", command=self.choose_output_directory)
-        self.output_browse_button.pack(side="left", padx=(6, 0))
-        self.output_default_button = ttk.Button(
-            output_frame, text="Use Input Folder", command=self.clear_output_directory
-        )
-        self.output_default_button.pack(side="left", padx=(6, 0))
-
         progress_frame = ttk.Frame(self)
         progress_frame.pack(fill="x", padx=10, pady=(0, 5))
         self.progress_text = StringVar(self, value="Progress: Idle")
@@ -250,26 +227,361 @@ class MobiToEpubApp(TkinterDnD.Tk):
         )
         self.log.pack(fill="both", expand=True, padx=10, pady=10)
 
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(fill="x", padx=10, pady=(0, 10))
+        bottom_frame.columnconfigure(0, weight=1)
+        bottom_frame.columnconfigure(1, weight=1)
+
+        self.input_dir_button = ttk.Button(
+            bottom_frame,
+            textvariable=self.input_dir_display_var,
+            command=self.add_mobi_from_dialog,
+        )
+        self.input_dir_button.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        HoverTooltip(self.input_dir_button, "Select input MOBI files/folder")
+
+        self.output_path_button = ttk.Button(
+            bottom_frame,
+            textvariable=self.output_dir_display_var,
+            command=self.choose_output_directory,
+        )
+        self.output_path_button.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+        HoverTooltip(self.output_path_button, "Select output folder")
+
+        actions_frame = ttk.Frame(bottom_frame)
+        actions_frame.grid(row=0, column=2, sticky="e")
+
+        self.open_folder_button = ttk.Button(
+            actions_frame,
+            text=self.ACTION_ICON_OPEN_FOLDER,
+            width=3,
+            command=self.open_output_folder,
+            state="disabled",
+        )
+        self.open_folder_button.pack(side="left", padx=(0, 8))
+        HoverTooltip(self.open_folder_button, "Open output folder")
+
+        self.convert_button = ttk.Button(actions_frame, text="Convert All", command=self.start_conversion)
+        self.convert_button.pack(side="left")
+
+        # Keep cancel available for future use, but hidden per current UX request.
+        self.cancel_button = ttk.Button(actions_frame, text="Cancel", command=self.cancel_conversion, state="disabled")
+
         self.timeout_tooltips = [
             HoverTooltip(self.timeout_label, self.TIMEOUT_TOOLTIP_TEXT),
             HoverTooltip(self.timeout_spinbox, self.TIMEOUT_TOOLTIP_TEXT),
         ]
+        self.update_path_display()
         self.load_icons()
+        self.protocol("WM_DELETE_WINDOW", self.on_main_window_close)
         self.after(self.EVENT_POLL_MS, self.process_event_queue)
         if not self.check_converter_available(show_dialog=True):
             self.queue_log(self.get_calibre_install_hint())
         self.update_about_button_status()
         self.log_startup_dependency_hints()
+        self.after(0, self.startup_sequence)
+
+    def build_menu_bar(self):
+        self.menu_bar = tk.Menu(self)
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="File", menu=self.file_menu)
+        self.file_menu.add_command(label="Add MOBI...", command=self.add_mobi_from_dialog)
+        self.file_menu.add_command(label="Clear List", command=self.clear_list)
+        self.clear_list_menu_index = self.file_menu.index("end")
+        self.file_menu.add_checkbutton(
+            label="Use Separate Output Folder",
+            variable=self.separate_output_var,
+            command=self.on_toggle_separate_output,
+        )
+        self.separate_output_menu_index = self.file_menu.index("end")
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Copy Errors", command=self.copy_errors, state="disabled")
+        self.copy_errors_menu_index = self.file_menu.index("end")
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="About", command=self.show_about)
+        self.about_menu_index = self.file_menu.index("end")
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Exit", command=self.on_main_window_close)
+        self.config(menu=self.menu_bar)
+
+    def startup_sequence(self):
+        if self.show_splash_window():
+            self.splash_after_id = self.after(self.SPLASH_DURATION_MS, self.close_splash_window)
+
+    def get_splash_logo_path(self):
+        candidates = (
+            resource_path(os.path.join("assets", "logo.png")),
+            resource_path(os.path.join("assets", "screenshots", "logo.png")),
+            self.icon_path,
+        )
+        for path in candidates:
+            if path and os.path.isfile(path):
+                return path
+        return ""
+
+    def load_photo_image(self, image_path, max_size=None):
+        if not image_path or not os.path.isfile(image_path):
+            return None
+        try:
+            from PIL import Image, ImageTk
+
+            image = Image.open(image_path).convert("RGBA")
+            if max_size:
+                image.thumbnail(max_size)
+            return ImageTk.PhotoImage(image)
+        except Exception:
+            pass
+        try:
+            image = PhotoImage(file=image_path)
+            if max_size:
+                max_dim = max(image.width(), image.height())
+                target_dim = max(max_size)
+                if max_dim > target_dim:
+                    scale = max(1, (max_dim + target_dim - 1) // target_dim)
+                    image = image.subsample(scale, scale)
+            return image
+        except Exception:
+            return None
+
+    def show_splash_window(self):
+        logo_path = self.get_splash_logo_path()
+        self.splash_logo_image = self.load_photo_image(logo_path, max_size=(900, 420))
+        if self.splash_logo_image is None:
+            return False
+
+        splash = Toplevel(self)
+        self.splash_window = splash
+        splash.overrideredirect(True)
+        try:
+            splash.attributes("-topmost", True)
+        except Exception:
+            pass
+
+        panel = ttk.Frame(splash, padding=14)
+        panel.pack(fill="both", expand=True)
+        logo_label = ttk.Label(panel, image=self.splash_logo_image)
+        logo_label.pack()
+
+        splash.bind("<Button-1>", self.close_splash_window)
+        panel.bind("<Button-1>", self.close_splash_window)
+        logo_label.bind("<Button-1>", self.close_splash_window)
+
+        splash.update_idletasks()
+        width = splash.winfo_width()
+        height = splash.winfo_height()
+        screen_w = splash.winfo_screenwidth()
+        screen_h = splash.winfo_screenheight()
+
+        # Center splash over the log area so startup feels anchored to the app body.
+        log_widget = getattr(self, "log", None)
+        if log_widget is not None and log_widget.winfo_ismapped():
+            target_x = log_widget.winfo_rootx() + (log_widget.winfo_width() - width) // 2
+            target_y = log_widget.winfo_rooty() + (log_widget.winfo_height() - height) // 2
+            x = max(min(target_x, screen_w - width), 0)
+            y = max(min(target_y, screen_h - height), 0)
+        else:
+            x = max((screen_w - width) // 2, 0)
+            y = max((screen_h - height) // 2, 0)
+        splash.geometry(f"{width}x{height}+{x}+{y}")
+        splash.lift()
+        splash.focus_force()
+        return True
+
+    def close_splash_window(self, _event=None):
+        if self.splash_after_id is not None:
+            try:
+                self.after_cancel(self.splash_after_id)
+            except Exception:
+                pass
+            self.splash_after_id = None
+        splash = getattr(self, "splash_window", None)
+        if splash is not None and splash.winfo_exists():
+            splash.destroy()
+        self.splash_window = None
+
+    def get_settings_file_path(self):
+        settings_dir = os.path.join(os.path.expanduser("~"), ".config", "mobihunter")
+        return os.path.join(settings_dir, "settings.json")
+
+    def load_ui_settings(self):
+        settings_path = self.get_settings_file_path()
+        if not os.path.isfile(settings_path):
+            return
+        try:
+            with open(settings_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            return
+
+        self.last_browse_dir = data.get("last_browse_dir", self.last_browse_dir)
+        self.input_dir_var.set(data.get("input_dir", ""))
+        self.output_dir_var.set(data.get("output_dir", ""))
+        self.separate_output_var.set(bool(data.get("separate_output", True)))
+
+    def save_ui_settings(self):
+        settings_path = self.get_settings_file_path()
+        settings_dir = os.path.dirname(settings_path)
+        try:
+            os.makedirs(settings_dir, exist_ok=True)
+            data = {
+                "last_browse_dir": self.last_browse_dir,
+                "input_dir": self.input_dir_var.get().strip(),
+                "output_dir": self.output_dir_var.get().strip(),
+                "separate_output": bool(self.separate_output_var.get()),
+            }
+            with open(settings_path, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, indent=2)
+        except Exception:
+            pass
+
+    def on_main_window_close(self):
+        self.save_ui_settings()
+        self.destroy()
+
+    def on_toggle_separate_output(self):
+        input_dir = self.input_dir_var.get().strip()
+        if not self.separate_output_var.get():
+            if input_dir:
+                self.output_dir_var.set(input_dir)
+        elif not self.output_dir_var.get().strip() and input_dir:
+            self.output_dir_var.set(input_dir)
+        self.update_path_display()
+        self.save_ui_settings()
+
+    def get_effective_output_dir(self):
+        input_dir = self.input_dir_var.get().strip()
+        output_dir = self.output_dir_var.get().strip()
+        if self.separate_output_var.get():
+            return output_dir or input_dir or None
+        return input_dir or None
+
+    def set_input_directory(self, directory):
+        if not directory:
+            return
+        directory = os.path.abspath(os.path.expanduser(directory))
+        if not os.path.isdir(directory):
+            return
+        self.input_dir_var.set(directory)
+        self.last_browse_dir = directory
+        if (not self.separate_output_var.get()) or (not self.output_dir_var.get().strip()):
+            self.output_dir_var.set(directory)
+        self.update_path_display()
+        self.save_ui_settings()
+
+    def set_input_directory_from_paths(self, paths):
+        if not paths:
+            return
+        candidate = paths[0]
+        if os.path.isfile(candidate):
+            self.set_input_directory(os.path.dirname(candidate))
+        elif os.path.isdir(candidate):
+            self.set_input_directory(candidate)
+
+    def update_path_display(self):
+        input_dir = self.input_dir_var.get().strip()
+        output_dir = self.output_dir_var.get().strip()
+        input_text = f"Input: {input_dir}" if input_dir else "Input: Select MOBI files/folder"
+        if self.separate_output_var.get():
+            effective_output = output_dir or input_dir
+            output_text = f"Output: {effective_output}" if effective_output else "Output: Select folder"
+        else:
+            output_text = "Output: Same as input"
+        self.input_dir_display_var.set(input_text)
+        self.output_dir_display_var.set(output_text)
+        if hasattr(self, "output_path_button"):
+            if self.separate_output_var.get() and not self.is_converting:
+                self.output_path_button.configure(state="normal")
+            else:
+                self.output_path_button.configure(state="disabled")
 
     def on_drop(self, event):
+        self.drop_zone_drag_over = False
+        self.redraw_drop_zone()
+        dropped_paths = self.split_drop_payload(event.data)
+        self.set_input_directory_from_paths(dropped_paths)
         converting_now = self.is_converting
         added_count = 0
-        for path in self.split_drop_payload(event.data):
+        for path in dropped_paths:
             added_count += self.queue_path(path)
         if added_count == 0:
             self.queue_log("No new .mobi files were added from this drop.")
         elif converting_now:
             self.queue_log(f"Added {added_count} file(s) for the next batch after the current run.")
+
+    def on_drop_zone_click(self, _event=None):
+        if self.is_converting:
+            self.queue_log("Browse is disabled while converting. Drop files to queue the next batch.")
+            return
+        self.add_mobi_from_dialog()
+
+    def on_drop_zone_mouse_enter(self, _event=None):
+        self.drop_zone_mouse_over = True
+        self.redraw_drop_zone()
+
+    def on_drop_zone_mouse_leave(self, _event=None):
+        self.drop_zone_mouse_over = False
+        self.redraw_drop_zone()
+
+    def on_drop_target_enter(self, event):
+        self.drop_zone_drag_over = True
+        self.redraw_drop_zone()
+        return getattr(event, "action", "copy")
+
+    def on_drop_target_leave(self, _event):
+        self.drop_zone_drag_over = False
+        self.redraw_drop_zone()
+
+    def redraw_drop_zone(self, _event=None):
+        self.drop_canvas.delete("all")
+        width = max(self.drop_canvas.winfo_width(), 1)
+        height = max(self.drop_canvas.winfo_height(), 1)
+        pad = 14
+        x0, y0 = pad, pad
+        x1, y1 = width - pad, height - pad
+
+        is_active = self.drop_zone_mouse_over or self.drop_zone_drag_over
+        border_color = self.DROP_ZONE_BORDER_HOVER if is_active else self.DROP_ZONE_BORDER
+        fill_color = self.DROP_ZONE_BG_HOVER if is_active else self.DROP_ZONE_BG
+        icon_color = border_color
+
+        if self.is_converting:
+            title = "Converting... please wait"
+            subtitle = "Drop files to queue the next batch"
+        else:
+            title = "Drag .mobi files or folders here"
+            subtitle = "or click to browse"
+
+        self.drop_canvas.create_rectangle(
+            x0,
+            y0,
+            x1,
+            y1,
+            outline=border_color,
+            width=2,
+            dash=(6, 4),
+            fill=fill_color,
+        )
+        self.drop_canvas.create_text(
+            width / 2,
+            height / 2 - 28,
+            text=self.DROP_ZONE_ICON,
+            fill=icon_color,
+            font=("TkDefaultFont", 28),
+        )
+        self.drop_canvas.create_text(
+            width / 2,
+            height / 2 + 8,
+            text=title,
+            fill=self.DROP_ZONE_TEXT,
+            font=("TkDefaultFont", 13, "bold"),
+        )
+        self.drop_canvas.create_text(
+            width / 2,
+            height / 2 + 32,
+            text=subtitle,
+            fill=self.DROP_ZONE_SUBTEXT,
+            font=("TkDefaultFont", 11),
+        )
 
     def add_mobi_from_dialog(self):
         converting_now = self.is_converting
@@ -280,13 +592,13 @@ class MobiToEpubApp(TkinterDnD.Tk):
 
         if selection_type == "files":
             selected_files = selection_value
-            self.last_browse_dir = os.path.dirname(selected_files[0]) or self.last_browse_dir
+            self.set_input_directory(os.path.dirname(selected_files[0]))
             added_count = 0
             for path in selected_files:
                 added_count += self.queue_path(path)
         else:
             selected_folder = selection_value
-            self.last_browse_dir = selected_folder
+            self.set_input_directory(selected_folder)
             added_count = self.queue_path(selected_folder)
         self.log_manual_add_result(added_count, converting_now)
 
@@ -500,7 +812,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         return result["value"]
 
     def choose_output_directory(self):
-        base_dir = self.output_dir_var.get().strip() or self.last_browse_dir
+        base_dir = self.output_dir_var.get().strip() or self.input_dir_var.get().strip() or self.last_browse_dir
         if not os.path.isdir(base_dir):
             base_dir = os.path.expanduser("~")
 
@@ -509,17 +821,9 @@ class MobiToEpubApp(TkinterDnD.Tk):
             return
         self.output_dir_var.set(selected_folder)
         self.last_browse_dir = selected_folder
-        self.update_output_dir_display()
+        self.update_path_display()
+        self.save_ui_settings()
         self.queue_log(f"Output folder set to: {selected_folder}")
-
-    def clear_output_directory(self):
-        self.output_dir_var.set("")
-        self.update_output_dir_display()
-        self.queue_log("Output folder reset to input folder (default).")
-
-    def update_output_dir_display(self):
-        selected = self.output_dir_var.get().strip()
-        self.output_dir_display_var.set(selected if selected else "Input folder (default)")
 
     def log_manual_add_result(self, added_count, converting_now):
         if added_count == 0:
@@ -600,7 +904,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.files_to_convert.clear()
         self.file_keys.clear()
         self.last_errors.clear()
-        self.copy_errors_button.configure(state="disabled")
+        self.file_menu.entryconfig(self.copy_errors_menu_index, state="disabled")
         self.set_progress(0, 0)
         self.queue_log(f"Cleared {removed} queued file(s).")
 
@@ -619,7 +923,7 @@ class MobiToEpubApp(TkinterDnD.Tk):
         except ValueError as exc:
             messagebox.showerror("Invalid timeout", str(exc))
             return
-        output_dir = self.output_dir_var.get().strip() or None
+        output_dir = self.get_effective_output_dir()
         if output_dir and not os.path.isdir(output_dir):
             messagebox.showerror("Invalid output folder", f"Selected output folder does not exist:\n{output_dir}")
             return
@@ -842,7 +1146,9 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.last_errors = []
         for mobi_path, detail in failures:
             self.last_errors.append(f"{mobi_path}\n{detail}")
-        self.copy_errors_button.configure(state="normal" if self.last_errors else "disabled")
+        self.file_menu.entryconfig(
+            self.copy_errors_menu_index, state="normal" if self.last_errors else "disabled"
+        )
 
         self.log_message(
             f"Finished: {len(successes)} converted, {len(skipped)} skipped, {len(failures)} failed "
@@ -1028,21 +1334,8 @@ class MobiToEpubApp(TkinterDnD.Tk):
 
     def update_about_button_status(self):
         missing = self.get_missing_dependency_names()
-        if missing:
-            self.about_button.configure(
-                bg="#c62828",
-                fg="white",
-                activebackground="#b71c1c",
-                activeforeground="white",
-            )
-            return
-
-        self.about_button.configure(
-            bg=self.about_button_default_bg,
-            fg=self.about_button_default_fg,
-            activebackground=self.about_button_default_active_bg,
-            activeforeground=self.about_button_default_active_fg,
-        )
+        label = "About (Dependencies Missing)" if missing else "About"
+        self.file_menu.entryconfig(self.about_menu_index, label=label)
 
     def get_calibre_install_hint(self):
         base_url = "https://calibre-ebook.com/download"
@@ -1073,17 +1366,18 @@ class MobiToEpubApp(TkinterDnD.Tk):
         self.is_converting = running
         self.convert_button.configure(state="disabled" if running else "normal")
         self.cancel_button.configure(state="normal" if running else "disabled")
-        self.clear_button.configure(state="disabled" if running else "normal")
+        self.file_menu.entryconfig(self.clear_list_menu_index, state="disabled" if running else "normal")
+        self.file_menu.entryconfig(self.separate_output_menu_index, state="disabled" if running else "normal")
         self.policy_combo.configure(state="disabled" if running else "readonly")
         self.timeout_spinbox.configure(state="disabled" if running else "normal")
         self.failure_policy_combo.configure(state="disabled" if running else "readonly")
         self.delete_source_check.configure(state="disabled" if running else "normal")
-        self.output_browse_button.configure(state="disabled" if running else "normal")
-        self.output_default_button.configure(state="disabled" if running else "normal")
-        if running:
-            self.drop_label.configure(text="Converting... please wait")
+        if self.separate_output_var.get():
+            self.output_path_button.configure(state="disabled" if running else "normal")
         else:
-            self.drop_label.configure(text="Drag .mobi files or folders here")
+            self.output_path_button.configure(state="disabled")
+        self.drop_canvas.configure(cursor="arrow" if running else "hand2")
+        self.redraw_drop_zone()
 
     def get_timeout_seconds(self):
         raw_value = self.timeout_seconds_var.get().strip()
