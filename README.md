@@ -31,46 +31,10 @@
 - Bottom status bar (dependency status, current file, conversion result)
 - Splash screen branding and About dialog dependency checks
 
-## Requirements
+## Linux Quick Start (Beginner)
 
-- Python 3.10+
-- Calibre installed (`ebook-convert` available on `PATH`)
-- Python package: `tkinterdnd2`
-- Python package: `Pillow`
-
-## Install (Linux/macOS)
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Install (Windows PowerShell)
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-## Run (Linux/macOS)
-
-```bash
-source .venv/bin/activate
-python main.py
-```
-
-## Run (Windows PowerShell)
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python main.py
-```
-
-## Linux Portable Build (GitHub Releases)
-
-### End user: download and run
+1. Install Calibre: https://calibre-ebook.com/download
+2. Download and run the latest portable app:
 
 ```bash
 wget https://github.com/shammyfiveducks/MOBIHunter/releases/latest/download/MOBIHunter-linux-portable.tar.gz
@@ -80,29 +44,37 @@ chmod +x MOBIHunter
 ./MOBIHunter
 ```
 
-Calibre (`ebook-convert`) still needs to be installed on the Linux machine.
+If the app does not appear, start it from terminal in that folder with `./MOBIHunter` and check messages.
 
-### Maintainer: build and upload tarball
+## Run From Source (Python)
+
+### What is a virtual environment (`venv`)?
+
+A virtual environment is a local Python environment inside this project folder. It keeps dependencies isolated so they do not affect other Python projects on your machine.
+
+### Requirements
+
+- Python 3.10+
+- Calibre installed (`ebook-convert` available on `PATH`)
+- Python packages: `tkinterdnd2`, `Pillow`
+
+### Linux/macOS
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-pip install pyinstaller
-
-python -m PyInstaller \
-  --noconfirm \
-  --windowed \
-  --name MOBIHunter \
-  --add-data "assets:assets" \
-  --collect-all tkinterdnd2 \
-  main.py
-
-tar -czf MOBIHunter-linux-portable.tar.gz -C dist MOBIHunter
+python main.py
 ```
 
-Upload `MOBIHunter-linux-portable.tar.gz` at:
-https://github.com/shammyfiveducks/MOBIHunter/releases/new
+### Windows PowerShell
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python main.py
+```
 
 ## Usage
 
@@ -117,14 +89,9 @@ https://github.com/shammyfiveducks/MOBIHunter/releases/new
 
 ## Troubleshooting
 
-- `ebook-convert not found`:
-  Install Calibre and restart the app.
-- Drag-and-drop unavailable:
-  Ensure `tkinterdnd2` is installed in the active environment.
-- App does not appear to launch from downloaded Linux package:
-  Start from terminal with `./MOBIHunter` to see behavior in-session.
-- Dependencies missing:
-  Check the bottom status bar and open `File -> About` for details.
+- `ebook-convert not found`: install Calibre and restart the app.
+- Drag-and-drop unavailable: ensure `tkinterdnd2` is installed in the active environment.
+- Dependencies missing: check the bottom status bar and open `File -> About` for details.
 
 ## Acknowledgements
 
@@ -133,6 +100,10 @@ https://github.com/shammyfiveducks/MOBIHunter/releases/new
   - Source: https://github.com/kovidgoyal/calibre
 - Drag-and-drop support is provided by **tkinterdnd2**.
 - Image loading/scaling support uses **Pillow**.
+
+## Maintainers
+
+Release packaging instructions are in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
 
